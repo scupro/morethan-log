@@ -17,11 +17,6 @@ const filter: FilterPostsOptions = {
   acceptType: ["Paper", "Post", "Page"],
 }
 
-const feedFilter: FilterPostsOptions = {
-  acceptStatus: ["Public", "PublicOnDetail"],
-  acceptType: ["Post"],
-}
-
 export const getStaticPaths = async () => {
   try {
     const posts = await getPosts()
@@ -45,7 +40,7 @@ export const getStaticProps: GetStaticProps = async (context) => {
 
   try {
     const posts = await getPosts()
-    const feedPosts = filterPosts(posts, feedFilter)
+    const feedPosts = filterPosts(posts)
     await queryClient.prefetchQuery(queryKey.posts(), () => feedPosts)
 
     const detailPosts = filterPosts(posts, filter)
