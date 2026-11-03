@@ -1,7 +1,7 @@
-import { NotionAPI } from "notion-client"
+import { createNotionAPI, notionGotOptions } from "./client"
 
 export const getRecordMap = async (pageId: string) => {
-  const api = new NotionAPI()
-  const recordMap = await api.getPage(pageId)
+  const api = createNotionAPI()
+  const recordMap = await api.getPage(pageId, { gotOptions: notionGotOptions })
   return recordMap
 }
