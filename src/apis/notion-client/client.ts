@@ -9,35 +9,35 @@ export const notionGotOptions = {
   },
 }
 
+// Notion now wraps every value as `{ spaceId, value: { value, role } }`.
+// notion-client 6.x only unwraps one level, so blocks look empty and
+// collections are never detected. Restore the flat `{ spaceId, value }` shape.
+function normalizeBlockMap(blockMap: any) {
+  if (!blockMap || typeof blockMap !== "object") return
+  for (const key of Object.keys(blockMap)) {
+    const entry = blockMap[key]
+    const inner = entry?.value?.value
+    if (inner && typeof inner === "object") {
+      entry.value = inner
+    }
+  }
+}
+
+function normalizeResponse(response: any) {
+  if (!response || typeof response !== "object") return response
+  normalizeBlockMap(response.recordMap?.block)
+  normalizeBlockMap(response.block)
+  return response
+}
+
 export const createNotionAPI = () => {
   const api = new NotionAPI({
     apiBaseUrl: "https://app.notion.com/api/v3",
   })
   const originalFetch = api.fetch.bind(api)
 
-  api.fetch = (async (args: any) => {
-    const body = args?.body
-    if (
-      args?.endpoint === "queryCollection" &&
-      body &&
-      typeof body === "object" &&
-      !body.source &&
-      body.collection?.id
-    ) {
-      body.source = { type: "collection", id: body.collection.id }
-    }
-
-    return originalFetch({
-      ...args,
-      gotOptions: {
-        ...args?.gotOptions,
-        headers: {
-          ...notionGotOptions.headers,
-          ...args?.gotOptions?.headers,
-        },
-      },
-    })
-  }) as typeof api.fetch
+  api.fetch = (async (args: any) =>
+    normalizeResponse(await originalFetch(args))) as typeof api.fetch
 
   return api
 }
