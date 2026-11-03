@@ -11,35 +11,40 @@ import { TPosts } from "src/types"
  */
 
 // TODO: react query를 사용해서 처음 불러온 뒤로는 해당데이터만 사용하도록 수정
-export const getPosts = async () => {
-  let id = CONFIG.notionConfig.pageId as string
-  const api = createNotionAPI()
+export const getPosts = async (): Promise<TPosts> => {
+  try {
+    let id = CONFIG.notionConfig.pageId as string
+    if (!id) return []
+    const api = createNotionAPI()
 
-  const response = await api.getPage(id, { gotOptions: notionGotOptions })
-  id = idToUuid(id)
-  const collectionValue = Object.values(response.collection)[0]?.value as any
-  const collection = collectionValue?.value ?? collectionValue
-  const block = response.block
-  const schema = collection?.schema
+    const response = await api.getPage(id, { gotOptions: notionGotOptions })
+    id = idToUuid(id)
+    const collectionValue = Object.values(response.collection || {})[0]
+      ?.value as any
+    const collection = collectionValue?.value ?? collectionValue
+    const block = response.block
+    const schema = collection?.schema
+    const pageBlock = block?.[id]
+    if (!pageBlock) return []
 
-  const blockValue = (block[id].value as any)?.value ?? block[id].value
-  const rawMetadata = blockValue
+    const blockValue = (pageBlock.value as any)?.value ?? pageBlock.value
+    const rawMetadata = blockValue
 
-  // Check Type
-  if (
-    rawMetadata?.type !== "collection_view_page" &&
-    rawMetadata?.type !== "collection_view"
-  ) {
-    return []
-  } else {
-    // Construct Data
+    if (
+      rawMetadata?.type !== "collection_view_page" &&
+      rawMetadata?.type !== "collection_view"
+    ) {
+      return []
+    }
+
     const pageIds = getAllPageIds(response)
     const data = []
     for (let i = 0; i < pageIds.length; i++) {
-      const id = pageIds[i]
-      const properties = (await getPageProperties(id, block, schema)) || null
-      // Add fullwidth, createdtime to properties
-      const pageBlockValue = (block[id].value as any)?.value ?? block[id].value
+      const pageId = pageIds[i]
+      const properties = (await getPageProperties(pageId, block, schema)) || null
+      if (!properties) continue
+      const pageBlockValue =
+        (block[pageId]?.value as any)?.value ?? block[pageId]?.value
       properties.createdTime = new Date(
         pageBlockValue?.created_time
       ).toString()
@@ -49,14 +54,15 @@ export const getPosts = async () => {
       data.push(properties)
     }
 
-    // Sort by date
     data.sort((a: any, b: any) => {
       const dateA: any = new Date(a?.date?.start_date || a.createdTime)
       const dateB: any = new Date(b?.date?.start_date || b.createdTime)
       return dateB - dateA
     })
 
-    const posts = data as TPosts
-    return posts
+    return data as TPosts
+  } catch (error) {
+    console.error("getPosts failed", error)
+    return []
   }
 }

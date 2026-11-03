@@ -18,42 +18,58 @@ const filter: FilterPostsOptions = {
 }
 
 export const getStaticPaths = async () => {
-  const posts = await getPosts()
-  const filteredPost = filterPosts(posts, filter)
+  try {
+    const posts = await getPosts()
+    const filteredPost = filterPosts(posts, filter)
 
-  return {
-    paths: filteredPost.map((row) => `/${row.slug}`),
-    fallback: true,
+    return {
+      paths: filteredPost.map((row) => `/${row.slug}`),
+      fallback: true,
+    }
+  } catch (error) {
+    console.error("getStaticPaths failed", error)
+    return {
+      paths: [],
+      fallback: true,
+    }
   }
 }
 
 export const getStaticProps: GetStaticProps = async (context) => {
   const slug = context.params?.slug
 
-  const posts = await getPosts()
-  const feedPosts = filterPosts(posts)
-  await queryClient.prefetchQuery(queryKey.posts(), () => feedPosts)
+  try {
+    const posts = await getPosts()
+    const feedPosts = filterPosts(posts)
+    await queryClient.prefetchQuery(queryKey.posts(), () => feedPosts)
 
-  const detailPosts = filterPosts(posts, filter)
-  const postDetail = detailPosts.find((t: any) => t.slug === slug)
-  if (!postDetail?.id) {
+    const detailPosts = filterPosts(posts, filter)
+    const postDetail = detailPosts.find((t: any) => t.slug === slug)
+    if (!postDetail?.id) {
+      return {
+        notFound: true,
+        revalidate: CONFIG.revalidateTime,
+      }
+    }
+    const recordMap = await getRecordMap(postDetail.id)
+
+    await queryClient.prefetchQuery(queryKey.post(`${slug}`), () => ({
+      ...postDetail,
+      recordMap,
+    }))
+
+    return {
+      props: {
+        dehydratedState: dehydrate(queryClient),
+      },
+      revalidate: CONFIG.revalidateTime,
+    }
+  } catch (error) {
+    console.error("getStaticProps failed", error)
     return {
       notFound: true,
       revalidate: CONFIG.revalidateTime,
     }
-  }
-  const recordMap = await getRecordMap(postDetail.id)
-
-  await queryClient.prefetchQuery(queryKey.post(`${slug}`), () => ({
-    ...postDetail,
-    recordMap,
-  }))
-
-  return {
-    props: {
-      dehydratedState: dehydrate(queryClient),
-    },
-    revalidate: CONFIG.revalidateTime,
   }
 }
 
