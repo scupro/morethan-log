@@ -9,24 +9,37 @@ export const notionGotOptions = {
   },
 }
 
-// Notion now wraps every value as `{ spaceId, value: { value, role } }`.
-// notion-client 6.x only unwraps one level, so blocks look empty and
+// Notion now wraps every record as `{ spaceId, value: { value, role } }`.
+// notion-client 6.x only unwraps one level, so blocks/users look empty and
 // collections are never detected. Restore the flat `{ spaceId, value }` shape.
-function normalizeBlockMap(blockMap: any) {
-  if (!blockMap || typeof blockMap !== "object") return
-  for (const key of Object.keys(blockMap)) {
-    const entry = blockMap[key]
-    const inner = entry?.value?.value
-    if (inner && typeof inner === "object") {
-      entry.value = inner
+const RECORD_MAP_TABLES = [
+  "block",
+  "collection",
+  "collection_view",
+  "notion_user",
+  "space",
+]
+
+function normalizeRecordMap(recordMap: any) {
+  if (!recordMap || typeof recordMap !== "object") return
+  for (const table of RECORD_MAP_TABLES) {
+    const records = recordMap[table]
+    if (!records || typeof records !== "object") continue
+    for (const key of Object.keys(records)) {
+      const entry = records[key]
+      const inner = entry?.value?.value
+      if (inner && typeof inner === "object") {
+        entry.value = inner
+      }
     }
   }
 }
 
 function normalizeResponse(response: any) {
   if (!response || typeof response !== "object") return response
-  normalizeBlockMap(response.recordMap?.block)
-  normalizeBlockMap(response.block)
+  normalizeRecordMap(response.recordMap)
+  normalizeRecordMap(response.recordMapWithRoles)
+  normalizeRecordMap(response)
   return response
 }
 
