@@ -8,10 +8,16 @@ import { queryKey } from "src/constants/queryKey"
 import { GetStaticProps } from "next"
 import { dehydrate } from "@tanstack/react-query"
 import { filterPosts } from "src/libs/utils/notion"
+import { FilterPostsOptions } from "src/libs/utils/notion/filterPosts"
+
+const feedFilter: FilterPostsOptions = {
+  acceptStatus: ["Public", "PublicOnDetail"],
+  acceptType: ["Post"],
+}
 
 export const getStaticProps: GetStaticProps = async () => {
   try {
-    const posts = filterPosts(await getPosts())
+    const posts = filterPosts(await getPosts(), feedFilter)
     await queryClient.prefetchQuery(queryKey.posts(), () => posts)
   } catch (error) {
     console.error("index getStaticProps failed", error)
